@@ -1,0 +1,29 @@
+# deps / build
+node_modules/
+dist/
+*.tsbuildinfo
+.eslintcache
+
+# generated (kept out of source; produced by build)
+packages/contract/openapi.json
+
+# secrets / local session
+.env
+.env.*
+.beli/
+*.session.json
+
+# python RE tooling (legacy, see research/)
+.venv/
+__pycache__/
+*.pyc
+
+# reverse-engineering artifacts — NOT published (decompiled app, captures, analysis)
+research/
+
+# large reverse-engineering artifacts (do not commit)
+*.apk
+*.apk.idsig
+
+# os
+.DS_Store

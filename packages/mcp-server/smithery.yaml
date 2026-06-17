@@ -1,0 +1,25 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      beliPhone:
+        type: string
+        description: "Beli account phone (E.164, e.g. +15551234567). Optional — prefer `npx beli-mcp login`."
+      beliPassword:
+        type: string
+        description: "Beli account password. Optional — prefer the interactive `npx beli-mcp login`. Never stored; only tokens are persisted."
+      allowWrites:
+        type: boolean
+        default: false
+        description: "Allow write tools (rank/bookmark/photo) without a per-call confirm flag."
+  commandFunction: |
+    config => ({
+      command: 'npx',
+      args: ['-y', 'beli-mcp'],
+      env: {
+        ...(config.beliPhone ? { BELI_PHONE: config.beliPhone } : {}),
+        ...(config.beliPassword ? { BELI_PASSWORD: config.beliPassword } : {}),
+        ...(config.allowWrites ? { BELI_ALLOW_WRITES: '1' } : {})
+      }
+    })

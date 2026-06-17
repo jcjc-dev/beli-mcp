@@ -1,0 +1,32 @@
+{
+  "name": "@beli/contract",
+  "version": "0.1.0",
+  "description": "Reverse-engineered Beli API contract: zod schemas (source of truth) + generated OpenAPI.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./openapi.json": "./openapi.json"
+  },
+  "files": ["dist", "openapi.json", "README.md"],
+  "scripts": {
+    "build": "tsc -b",
+    "gen:openapi": "tsx scripts/gen-openapi.ts",
+    "prepublishOnly": "npm run build && npm run gen:openapi"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

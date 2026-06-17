@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test --if-present
+      - name: Validate server.json version matches package.json
+        run: |
+          node -e "
+            const pkg = require('./packages/mcp-server/package.json');
+            const srv = require('./packages/mcp-server/server.json');
+            if (pkg.version !== srv.version) {
+              console.error('version mismatch: package.json=' + pkg.version + ' server.json=' + srv.version);
+              process.exit(1);
+            }
+            const npmPkg = srv.packages.find(p => p.registryType === 'npm');
+            if (npmPkg.version !== pkg.version) {
+              console.error('server.json npm package version mismatch');
+              process.exit(1);
+            }
+            if (pkg.mcpName !== srv.name) {
+              console.error('mcpName mismatch: ' + pkg.mcpName + ' vs ' + srv.name);
+              process.exit(1);
+            }
+            console.log('server.json OK');
+          "

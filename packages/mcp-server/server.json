@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.jcjc-dev/beli-mcp",
+  "description": "MCP server for Beli — log in once, then search places, rank reviews, manage photos and bookmarks via tools.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/jcjc-dev/beli-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "beli-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BELI_PHONE",
+          "description": "Beli account phone in E.164 (e.g. +15551234567). Optional — prefer `npx beli-mcp login`.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "BELI_PASSWORD",
+          "description": "Beli account password. Optional — prefer `npx beli-mcp login`. Never stored; only tokens are persisted.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "BELI_ALLOW_WRITES",
+          "description": "Set to 1 to allow write tools without a per-call confirm flag.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

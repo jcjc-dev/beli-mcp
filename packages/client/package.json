@@ -1,0 +1,29 @@
+{
+  "name": "@beli/client",
+  "version": "0.1.0",
+  "description": "Typed Beli API client with login-once session management. Validates against @beli/contract.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -b",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@beli/contract": "0.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  }
+}
