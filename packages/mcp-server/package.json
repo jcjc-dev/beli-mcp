@@ -22,7 +22,8 @@
     "beli-mcp": "dist/cli.js"
   },
   "files": [
-    "dist",
+    "dist/cli.js",
+    "dist/cli.js.map",
     "LICENSE",
     "README.md"
   ],

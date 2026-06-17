@@ -1,12 +1,22 @@
 name: Publish
 
+# Publishes beli-mcp to npm when you create a GitHub Release.
+#
+# Tokenless: uses npm Trusted Publishing (OIDC) — NO npm token / secret required.
+# One-time setup on npmjs.com after the package exists (first publish is done
+# locally): npmjs.com -> beli-mcp -> Settings -> Trusted Publisher -> add
+#   Provider:   GitHub Actions
+#   Repository: jcjc-dev/beli-mcp
+#   Workflow:   publish.yml
+# Provenance is attached automatically when publishing via OIDC.
+
 on:
   release:
     types: [published]
 
 permissions:
   contents: read
-  id-token: write # OIDC provenance for npm + MCP Registry auth
+  id-token: write # OIDC for npm Trusted Publishing + provenance
 
 jobs:
   publish-npm:
@@ -18,24 +28,9 @@ jobs:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
+      # npm >= 11.5 is required for tokenless Trusted Publishing.
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
-      - name: Publish beli-mcp to npm (with provenance)
-        run: npm publish --workspace beli-mcp --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  publish-registry:
-    needs: publish-npm
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install MCP Registry publisher
-        run: |
-          curl -sSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m).tar.gz" \
-            | tar xz mcp-publisher || echo "skip if release asset naming changed"
-      - name: Login + publish to MCP Registry (GitHub OIDC)
-        working-directory: packages/mcp-server
-        run: |
-          ../../mcp-publisher login github-oidc
-          ../../mcp-publisher publish
+      - name: Publish beli-mcp to npm (Trusted Publishing, no token)
+        run: npm publish --workspace beli-mcp --access public
