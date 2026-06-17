@@ -31,7 +31,6 @@
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "inspector": "npx @modelcontextprotocol/inspector node dist/cli.js",
-    "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
