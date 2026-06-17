@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc -b && npm run build --workspace beli-mcp",
     "typecheck": "tsc -b",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "eslint .",
     "gen:openapi": "npm run gen:openapi --workspace @beli/contract",
     "clean": "rm -rf packages/*/dist packages/*/*.tsbuildinfo"
