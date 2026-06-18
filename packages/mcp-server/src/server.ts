@@ -24,9 +24,18 @@ export async function buildServer(config: Config = loadConfig()): Promise<BuiltS
   const drafts = new DraftStore(config.draftsPath);
   const ctx = new AppContext(client, drafts, config);
 
+  // Auto-login: when a tool needs auth and no valid session exists, transparently
+  // launch the browser login popup (unless running headless). Skipped when creds
+  // are provided (the client logs in headlessly via those instead).
+  if (!config.noBrowser && !(config.phone && config.password)) {
+    client.setOnAuthRequired(async () => {
+      await ctx.interactiveLogin();
+    });
+  }
+
   const server = new McpServer({
     name: "beli-mcp",
-    version: "0.1.0",
+    version: "0.2.0",
   });
   registerAllTools(server, ctx);
 

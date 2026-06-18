@@ -21,6 +21,15 @@ export interface BeliClientOptions {
   password?: string;
   /** Pluggable persistence so one login survives across runs. */
   store?: SessionStore;
+  /**
+   * Optional interactive-login hook. Invoked as a last resort when no valid
+   * session can be obtained (no fresh access, refresh failed, no credentials).
+   * Implementations should drive an interactive login that ultimately calls
+   * `login()` on this same client (e.g. the MCP server's browser flow). Allows
+   * an agent tool call to transparently trigger a login popup. Returns when the
+   * attempt is finished (whether or not it succeeded).
+   */
+  onAuthRequired?: () => Promise<void>;
 }
 
 interface RequestOpts {
@@ -38,9 +47,17 @@ export class BeliClient {
   private readonly store: SessionStore;
   private bootstrapped = false;
   private refreshInFlight: Promise<void> | null = null;
+  private authHookInFlight: Promise<void> | null = null;
+  private authHook?: () => Promise<void>;
 
   constructor(private readonly opts: BeliClientOptions = {}) {
     this.store = opts.store ?? new MemorySessionStore();
+    this.authHook = opts.onAuthRequired;
+  }
+
+  /** Set/replace the interactive-login hook after construction. */
+  setOnAuthRequired(hook: (() => Promise<void>) | undefined): void {
+    this.authHook = hook;
   }
 
   /** Load any persisted session (call once before use). */
@@ -110,6 +127,12 @@ export class BeliClient {
     await this.store.save(this.state);
   }
 
+  /** Clear the local session (does not revoke tokens server-side). */
+  async logout(): Promise<void> {
+    this.state = emptySession();
+    await this.store.save(this.state);
+  }
+
   private accessFresh(): boolean {
     const now = Math.floor(Date.now() / 1000);
     return Boolean(
@@ -155,8 +178,8 @@ export class BeliClient {
 
     if (await this.tryRefreshOrLogin()) return;
 
-    // Last resort: an out-of-band `login` (separate process) may have written a
-    // fresh session since we loaded. Reload from disk and retry once if it changed.
+    // An out-of-band `login` (separate process) may have written a fresh session
+    // since we loaded. Reload from disk and retry once if it changed.
     const prevRefresh = this.state.refresh;
     this.state = { ...emptySession(), ...(await this.store.load()) };
     if (this.accessFresh()) return;
@@ -164,9 +187,42 @@ export class BeliClient {
       if (await this.tryRefreshOrLogin()) return;
     }
 
+    // Last resort: trigger the interactive-login hook (e.g. the MCP server's
+    // browser popup), de-duplicated so concurrent calls share one login.
+    if (this.authHook) {
+      await this.callAuthHook();
+      if (this.accessFresh()) return;
+      // The hook may have written the session via the store rather than into
+      // this instance — reload and try once more.
+      this.state = { ...emptySession(), ...(await this.store.load()) };
+      if (this.accessFresh()) return;
+      if (await this.tryRefreshOrLogin()) return;
+    }
+
     throw new Error(
-      "Beli session expired or missing. Run `npx beli-mcp login` to sign in.",
+      "Beli session expired or missing. Use the `login` tool (or run " +
+        "`npx beli-mcp login`) to sign in.",
     );
+  }
+
+  /** Invoke the interactive-login hook, single-flighting concurrent callers. */
+  private callAuthHook(): Promise<void> {
+    if (!this.authHook) return Promise.resolve();
+    if (!this.authHookInFlight) {
+      this.authHookInFlight = this.authHook().finally(() => {
+        this.authHookInFlight = null;
+      });
+    }
+    return this.authHookInFlight;
+  }
+
+  /**
+   * Ensure a usable session before building a request (resolving `userId`).
+   * Public so high-level helpers can authenticate — and trigger auto-login —
+   * before they reference the user id.
+   */
+  async ensureAuth(): Promise<void> {
+    await this.authenticate(false);
   }
 
   private requireUserId(): string {
@@ -210,7 +266,8 @@ export class BeliClient {
   }
 
   // ---- discovery ----
-  searchPlaces(term: string, city = "", coords = " ") {
+  async searchPlaces(term: string, city = "", coords = " ") {
+    await this.ensureAuth();
     return this.request("searchPlaces", {
       query: { term, city, coords, user: this.requireUserId() },
     });
@@ -248,13 +305,15 @@ export class BeliClient {
   }
 
   // ---- lists ----
-  getBeen(category: Category = "RES", user?: string) {
+  async getBeen(category: Category = "RES", user?: string) {
+    await this.ensureAuth();
     return this.request("getRanking", {
       query: { user: user ?? this.requireUserId(), category },
     });
   }
 
-  getWantToTry(category: Category = "RES", user?: string) {
+  async getWantToTry(category: Category = "RES", user?: string) {
+    await this.ensureAuth();
     return this.request("getBookmark", {
       query: { user: user ?? this.requireUserId(), category },
     });
@@ -303,6 +362,7 @@ export class BeliClient {
     const category = args.category ?? "RES";
     const visitDate = args.visitDate ?? new Date().toISOString().slice(0, 10);
     const value = SENTIMENT_VALUE[args.sentiment ?? "liked"];
+    await this.ensureAuth();
     const body = this.rankingPayload(
       args.businessId,
       category,
@@ -331,7 +391,7 @@ export class BeliClient {
     order?: number;
     favoriteDish?: boolean;
   }): Promise<{ id: number }> {
-    await this.authenticate(false);
+    await this.ensureAuth();
     const fd = new FormData();
     const blob =
       args.image instanceof Blob
@@ -355,7 +415,8 @@ export class BeliClient {
     return e.response.parse(JSON.parse(text));
   }
 
-  listPhotos(businessId: number, user?: string) {
+  async listPhotos(businessId: number, user?: string) {
+    await this.ensureAuth();
     return this.request("listPhotos", {
       query: { user: user ?? this.requireUserId(), business: businessId },
     });
@@ -407,6 +468,7 @@ export class BeliClient {
     resNotifs?: boolean;
     sourceId?: string | null;
   }) {
+    await this.ensureAuth();
     const body = {
       user_id: this.requireUserId(),
       business_id: args.businessId,
@@ -419,7 +481,8 @@ export class BeliClient {
     return this.request("addBookmark", { body });
   }
 
-  unbookmark(args: { businessId: number; category?: Category }) {
+  async unbookmark(args: { businessId: number; category?: Category }) {
+    await this.ensureAuth();
     return this.request("removeBookmark", {
       query: { supports_guide_item_cleanup: "true" },
       body: {

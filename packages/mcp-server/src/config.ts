@@ -11,6 +11,8 @@ export interface Config {
   allowWrites: boolean;
   /** Minimum ms between API calls (politeness throttle). */
   minIntervalMs: number;
+  /** When true, never launch a browser (headless/CI); disables auto-login popups. */
+  noBrowser: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -22,5 +24,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     draftsPath: env.BELI_DRAFTS_PATH ?? join(dir, "drafts.json"),
     allowWrites: env.BELI_ALLOW_WRITES === "1" || env.BELI_ALLOW_WRITES === "true",
     minIntervalMs: Number(env.BELI_MIN_INTERVAL_MS ?? "350"),
+    noBrowser: env.BELI_NO_BROWSER === "1" || env.BELI_NO_BROWSER === "true",
   };
 }
