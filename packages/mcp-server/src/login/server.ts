@@ -19,14 +19,22 @@ const HOST = "127.0.0.1";
  * their browser; we validate against Beli before persisting ONLY the tokens.
  * Client-agnostic (works for Claude Desktop, Cursor, CLI, etc.) — no env vars.
  *
+ * If a `client` is supplied, we log into THAT client so a running MCP server
+ * picks up the session in-memory immediately (no restart). Otherwise a fresh
+ * client backed by the session file is used.
+ *
  * Hardening: binds to loopback on an ephemeral port; a random nonce (only ever
  * placed in the opened URL) is required on GET and POST; the Host header must
  * match our own origin (anti DNS-rebinding); auto-exits after a timeout.
  */
-export function runInteractiveLogin(config: Config): Promise<LoginResult> {
+export function runInteractiveLogin(
+  config: Config,
+  client?: BeliClient,
+): Promise<LoginResult> {
   return new Promise<LoginResult>((resolve, reject) => {
     const nonce = randomBytes(24).toString("base64url");
-    const client = new BeliClient({ store: new FileSessionStore(config.sessionPath) });
+    const beli =
+      client ?? new BeliClient({ store: new FileSessionStore(config.sessionPath) });
 
     let settled = false;
     const finish = (fn: () => void) => {
@@ -96,8 +104,8 @@ export function runInteractiveLogin(config: Config): Promise<LoginResult> {
         // can't reject mid-request (which would desync the CLI from disk).
         clearTimeout(timer);
         try {
-          await client.init();
-          await client.login({ phone, password }); // validates + persists tokens
+          await beli.init();
+          await beli.login({ phone, password }); // validates + persists tokens
         } catch (err) {
           const status = (err as { status?: number })?.status;
           const msg =
@@ -109,10 +117,10 @@ export function runInteractiveLogin(config: Config): Promise<LoginResult> {
           sendHtml(res, 401, loginPage(nonce, msg));
           return;
         }
-        const label = client.userId ? `Logged in as ${client.userId}` : "Logged in";
+        const label = beli.userId ? `Logged in as ${beli.userId}` : "Logged in";
         sendHtml(res, 200, successPage(label));
         // let the response flush before tearing down the server
-        setTimeout(() => finish(() => resolve({ userId: client.userId })), 250);
+        setTimeout(() => finish(() => resolve({ userId: beli.userId })), 250);
         return;
       }
 
